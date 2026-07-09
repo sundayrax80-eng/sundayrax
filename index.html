@@ -138,7 +138,11 @@
   </main>
 
   <dialog class="booking-modal" id="booking-modal" aria-labelledby="booking-title">
-    <form class="booking-card" method="dialog">
+    <form class="booking-card" id="booking-form" name="booking-request" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field">
+      <input type="hidden" name="form-name" value="booking-request">
+      <p class="sr-only">
+        <label>Don’t fill this out if you’re human: <input name="bot-field"></label>
+      </p>
       <button class="modal-close" type="button" data-booking-close aria-label="Close booking form">×</button>
       <p class="kicker">Booking Request</p>
       <h2 id="booking-title">Book Sunday</h2>
@@ -153,6 +157,14 @@
       </div>
       <button class="btn btn-gold" type="submit">Send Booking Request</button>
     </form>
+    <div class="booking-card booking-success" id="booking-success" hidden>
+      <button class="modal-close" type="button" data-booking-close aria-label="Close thank you message">×</button>
+      <div class="success-icon" aria-hidden="true">✓</div>
+      <p class="kicker">Thank you</p>
+      <h3>Thank you for your submission.</h3>
+      <p>Your booking request has been received and will be routed to Sunday’s team through Netlify.</p>
+      <button class="btn btn-gold" type="button" data-booking-close>Close</button>
+    </div>
   </dialog>
 
   <footer class="footer">
@@ -166,25 +178,36 @@
     const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}}),{threshold:.12});
     document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
     document.getElementById('year').textContent=new Date().getFullYear();
-    const bookingModal=document.getElementById('booking-modal'),bookingForm=bookingModal.querySelector('.booking-card');
-    document.querySelectorAll('[data-booking-open]').forEach(button=>button.addEventListener('click',()=>bookingModal.showModal()));
-    document.querySelectorAll('[data-booking-close]').forEach(button=>button.addEventListener('click',()=>bookingModal.close()));
-    bookingModal.addEventListener('click',event=>{if(event.target===bookingModal)bookingModal.close()});
-    bookingForm.addEventListener('submit',event=>{
+    const bookingModal=document.getElementById('booking-modal');
+    const bookingForm=document.getElementById('booking-form');
+    const bookingSuccess=document.getElementById('booking-success');
+    const resetBookingState=()=>{
+      bookingForm.hidden=false;
+      bookingSuccess.hidden=true;
+      bookingForm.reset();
+    };
+    document.querySelectorAll('[data-booking-open]').forEach(button=>button.addEventListener('click',()=>{
+      resetBookingState();
+      bookingModal.showModal();
+    }));
+    document.querySelectorAll('[data-booking-close]').forEach(button=>button.addEventListener('click',()=>{
+      bookingModal.close();
+      resetBookingState();
+    }));
+    bookingModal.addEventListener('click',event=>{if(event.target===bookingModal){bookingModal.close();resetBookingState();}});
+    bookingModal.addEventListener('close',resetBookingState);
+    bookingForm.addEventListener('submit',async event=>{
       event.preventDefault();
       const data=new FormData(bookingForm);
-      const body=[
-        `Name: ${data.get('name')||''}`,
-        `Email: ${data.get('email')||''}`,
-        `Phone: ${data.get('phone')||''}`,
-        `Event date: ${data.get('date')||''}`,
-        `Request type: ${data.get('type')||''}`,
-        '',
-        'Details:',
-        data.get('message')||''
-      ].join('\n');
-      window.location.href=`mailto:hello@sundayrax.com?subject=${encodeURIComponent('Booking Request for Sunday Rax')}&body=${encodeURIComponent(body)}`;
-      bookingModal.close();
+      const body=new URLSearchParams();
+      data.forEach((value,key)=>body.append(key,value));
+      try {
+        await fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});
+      } catch (error) {
+        console.error('Booking form submission failed',error);
+      }
+      bookingForm.hidden=true;
+      bookingSuccess.hidden=false;
     });
   </script>
 </body>
